@@ -1,0 +1,73 @@
+Date,Time,ID,type,order_taken,processed,sniffing,rotation,scatter-hoard,eaten,jaw-movement,nb tour horizontal,nb tour vertical,timing (s),teeth-hole contact,Comments,N_congeners_around,temperature,humidity (percent),Session,Arena,Block
+24/05,07:25,Whiteline,hole,1,1,0,0,0,1,2,NA,NA,,1,"tried to eat for a while then went SH, rotated a bit but I think it is more to replace than to assess cause it's efter teeth hole contact",5,,,1,1,1
+24/05,07:29,Whiteline,control,2,1,2,1,1,0,2,0,2,,NA,,5,,,1,1,1
+24/05,07:34,Whiteline,crushed,3,1,0,1,1,0,2,1,0,,NA,,5,,,1,1,1
+24/05,07:37,Whiteline,crushed,1,1,2,1,0,1,3,0,1,,NA,,5,,,1,1,2
+24/05,07:38,Whiteline,hole,2,1,3,1,0,1,9,0,1,,1,"tried to eat and then quickly SH, probably cause learned it is really hard to eat, I would still put eat in cause it is the intention at the beginning, but we need to discuss this",5,,,1,1,2
+24/05,07:39,Whiteline,control,3,1,1,1,0,1,4,0,2,,NA,,5,,,1,1,2
+24/05,07:44,Whiteline,crushed,1,1,1,1,1,0,2,1,0,,NA,,5,,,1,1,3
+24/05,07:45,Whiteline,hole,2,0,1,0,NA,NA,2,0,0,,1,dropped it,5,,,1,1,3
+24/05,07:45,Whiteline,control,3,1,0,0,1,0,0,0,0,,NA,,5,,,1,1,3
+24/05,07:48,Whiteline,hole,4,0,0,0,NA,NA,0,0,0,,NA,"we coudl put one for teeth hole contact cause he probably knows that it is the one he just dropped, after that one more instance of quick smell or bite and then ignoring",5,,,1,1,3
+24/05,07:54,Whiteline,control,1,1,3,1,1,0,3,0,1,,,NA,5,,,1,1,4
+24/05,07:55,Whiteline,crushed,2,1,3,1,0,1,6,2,2,,NA,,5,,,1,1,4
+24/05,07:56,Whiteline,hole,3,1,1,0,1,0,1,NA,NA,,0,,5,,,1,1,4
+24/05,07:59,Whiteline,hole,1,1,0,0,1,0,1,0,0,,0,,5,,,1,1,5
+24/05,08:01,Whiteline,crushed,2,1,0,0,0,1,2,NA,NA,,NA,,5,,,1,1,5
+24/05,08:01,Whiteline,control,3,1,0,1,1,0,2,1,0.5,,NA,,5,,,1,1,5
+24/05,08:10,Whiteline,crushed,1,1,0,1,0,1,5,0.25,1,,NA,,5,,,1,1,6
+24/05,08:11,Whiteline,hole,2,0,3,1,NA,NA,6,1,0.5,,NA,,5,,,1,1,6
+24/05,08:11,Whiteline,control,3,1,4,1,1,0,8,0.25,1,,NA,,5,,,1,1,6
+24/05,08:13,Whiteline,hole,4,1,2,1,1,0,2,0,0.5,,0,,5,,,1,1,6
+24/05,08:15,Whiteline,hole,1,0,0,0,NA,NA,0,NA,NA,,NA,dropped it to immediatly replace it with a control,5,,,1,1,7
+24/05,08:15,Whiteline,control,2,1,1,1,1,0,3,0,0.5,,NA,,5,,,1,1,7
+24/05,08:16,Whiteline,crushed,3,1,0,0,0,1,2,NA,NA,,NA,,5,,,1,1,7
+24/05,08:17,Whiteline,hole,4,0,1,0,NA,NA,2,NA,NA,,NA,dropped it to look for another one in vain,5,,,1,1,7
+24/05,08:17,Whiteline,hole,5,1,1,1,1,0,3,0.25,1,,1,maybe cause now it now it's hard anyways so gonna sh,5,,,1,1,7
+26/05,07:10,Lightskin,crushed,1,1,2,1,0,1,5,0,0.5,,NA,,,,,2,1,1
+26/05,07:14,Lightskin,hole,2,1,5,1,0,1,6,0,0.5,,NA,tried eating for a long time then eventually decided to SH,,,,2,1,1
+26/05,07:15,Lightskin,control,3,1,1,0,1,0,2,NA,NA,,NA,,,,,2,1,1
+26/05,07:17,Lightskin,control,1,1,NA,NA,1,0,NA,NA,NA,NA,NA,,,,,2,1,2
+26/05,07:19,Lightskin,crushed,2,1,1,0,0,1,1,NA,NA,,NA,,,,,2,1,2
+26/05,07:20,Lightskin,hole,3,1,2,1,1,0,3,0.5,0.5,,0,,,,,2,1,2
+26/05,07:21,Lightskin,crushed,1,1,2,1,0,1,4,0,0.5,,NA,,,,,2,1,3
+26/05,07:23,Lightskin,hole,2,1,5,0,0,1,5,NA,NA,,1,"was disturbed in the assessment process and eventually SHed, after less time than before though, like well less",,,,2,1,3
+26/05,07:24,Lightskin,control,3,1,0,0,1,0,2,NA,NA,,NA,,,,,2,1,3
+26/05,07:25,Lightskin,hole,1,1,1,1,1,0,4,0.25,0.5,,NA,,,,,2,1,4
+26/05,07:26,Lightskin,crushed,2,1,0,1,0,1,2,0,0.5,,NA,,,,,2,1,4
+26/05,07:27,Lightskin,control,3,1,1,0,1,0,1,NA,NA,,NA,,,,,2,1,4
+26/05,07:29,Lightskin,crushed,1,1,2,0,0,1,2,NA,NA,,NA,,,,,2,1,5
+26/05,07:30,Lightskin,hole,2,1,2,1,1,0,2,0,0.5,,NA,,,,,2,1,5
+26/05,07:31,Lightskin,control,3,1,1,0,1,0,1,NA,NA,,NA,,,,,2,1,5
+26/05,07:33,Lightskin,crushed,1,1,1,0,0,1,1,NA,NA,,NA,,,,,2,1,6
+26/05,07:33,Lightskin,hole,2,1,0,1,1,0,1,0,0.25,,1,,,,,2,1,6
+26/05,07:35,Lightskin,control,3,1,2,1,1,0,2,0,0.5,,NA,,,,,2,1,6
+26/05,07:38,Lightskin,crushed,1,1,1,0,1,0,2,NA,NA,,NA,,,,,2,1,7
+26/05,07:39,Lightskin,control,2,1,2,0,1,0,2,NA,NA,,NA,,,,,2,1,7
+26/05,07:42,Lightskin,hole,3,1,4,1,1,0,11,0,1.5,,NA,,,,,2,1,7
+26/05,07:49,Lightskin,crushed,1,1,2,1,0,1,4,0.75,0.5,,NA,,,,,2,1,8
+26/05,07:49,Lightskin,control,2,1,1,0,1,0,2,NA,NA,,NA,,,,,2,1,8
+26/05,07:52,Lightskin,hole,3,0,2,1,NA,NA,4,0,0.5,,NA,"this seed had just been SHed by this same agouti from the arena just before, I dug it outta the ground",,,,2,1,8
+27/05,07:06,Babygriz,hole,1,1,3,1,0,1,8,1,0,,1,tried to eat for 3 min then SH,,,,3,1,1
+27/05,07:13,Babygriz,control,2,1,2,1,1,0,7,1,0.25,,NA,,,,,3,1,1
+27/05,07:16,Babygriz,crushed,3,1,5,1,0,1,8,1.5,1,,NA,,,,,3,1,1
+27/05,07:17,Babygriz,crushed,1,1,3,1,0,1,4,0,1,,NA,,,,,3,1,2
+27/05,07:18,Babygriz,hole,2,1,1,0,1,0,1,NA,NA,,0,,,,,3,1,2
+27/05,07:23,Babygriz,control,3,1,2,0,1,0,2,NA,NA,,NA,,,,,3,1,2
+27/05,07:26,Babygriz,hole,1,1,7,1,,,18,1.5,1.5,,1,I think he tried eating but knew already was gonna be tough so very fast went to SH,,,,3,1,3
+27/05,07:27,Babygriz,crushed,2,1,1,0,0,1,1,NA,NA,,NA,,,,,3,1,3
+27/05,07:29,Babygriz,control,3,1,1,0,1,0,2,NA,NA,,NA,,,,,3,1,3
+27/05,07:33,Babygriz,crushed,1,1,NA,NA,0,1,NA,NA,NA,,NA,,,,,3,1,4
+27/05,07:36,Babygriz,hole,2,1,3,0,0,1,5,NA,NA,,1,he gave up on the seed after trying to eat a lil and chose the full after,,,,3,1,4
+27/05,07:36,Babygriz,control,3,1,1,1,1,0,5,1.5,0,,NA,,,,,3,1,4
+27/05,07:37,Babygriz,hole,4,1,1,1,0,1,4,0,1,,1,tried to eat then gave up,,,,3,1,4
+27/05,07:39,Babygriz,control,1,1,0,1,0,1,2,0,0.5,,NA,,,,,3,1,5
+27/05,07:41,Babygriz,hole,2,1,2,0,1,0,2,NA,NA,,NA,,,,,3,1,5
+27/05,07:44,Babygriz,crushed,3,1,2,1,0,1,3,1,0,,NA,,,,,3,1,5
+27/05,07:46,Babygriz,hole,1,1,5,1,0,1,5,1,0,,1,"he might have tried to eat it a little bit, for a brief moment, but knows that it's impossible to SH right away",,,,3,1,6
+27/05,07:54,Babygriz,crushed,2,1,2,0,0,1,4,NA,NA,,NA,,,,,3,1,6
+27/05,07:59,Babygriz,control,3,1,1,0,1,0,0,NA,NA,,NA,,,,,3,1,6
+27/05,07:23,Knee,crushed,1,1,2,0,0,1,2,NA,NA,,NA,,,,,3,1,1
+27/05,07:26,Knee,hole,2,0,4,1,NA,NA,7,0,0.5,,1,,,,,3,1,1
+27/05,07:27,Knee,control,3,1,3,0,0,1,10,NA,NA,,NA,"tried to eat for a few minutes and then SH, probably had never seen oneseed like that control before, cause lives on the other side of the road, not dominant, not seen during any of the exp of attalea seeds, + not given a cintrol before start of blocks",,,,3,1,1
+27/05,07:31,Knee,hole,1,1,9,0,0,1,15,NA,NA,,1,eat then sh,,,,3,1,2
