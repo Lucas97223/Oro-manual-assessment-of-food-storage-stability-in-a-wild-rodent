@@ -7803,8 +7803,8 @@ def plot_random_clamp_maps_grid_3d(
 def plot_real_peanut_3d_surface(a=1.2602, b=1.3749, output_file=None, show=True):
     """
     Generates a beautiful interactive 3D surface plot of the Cassini ovoid peanut model
-    with a waist, showing the mesh grid squares and the hole, using standard colors
-    and a very fine resolution (300x300) to make the grid cells extremely small and square.
+    with a waist, showing the mesh grid squares and the hole, using standard colors.
+    All three coordinate contours (x, y, z) are enabled to show the complete grid.
     
     Parameters:
         a : float, default 1.2602
@@ -7853,6 +7853,7 @@ def plot_real_peanut_3d_surface(a=1.2602, b=1.3749, output_file=None, show=True)
     hole_mask = (dists_mesh <= overlap_threshold).astype(float)
 
     # Plot surface using standard ovoid colors: Tan shell '#C89C64' and Black hole '#1E1E1E'
+    # Enable x, y, and z contours to show the complete grid on the surface
     fig = go.Figure(data=[go.Surface(
         x=Xm, y=Ym, z=Zm,
         surfacecolor=hole_mask,
@@ -7860,10 +7861,11 @@ def plot_real_peanut_3d_surface(a=1.2602, b=1.3749, output_file=None, show=True)
         cmin=0, cmax=1,
         showscale=False,
         opacity=0.9,
-        # Draw the contours to show the square/mesh lines
+        # Draw the contours along x, y, and z to show a complete 3D wireframe grid on the surface
         contours=dict(
             x=dict(show=True, color='rgba(0,0,0,0.25)', width=1, highlight=False),
-            y=dict(show=True, color='rgba(0,0,0,0.25)', width=1, highlight=False)
+            y=dict(show=True, color='rgba(0,0,0,0.25)', width=1, highlight=False),
+            z=dict(show=True, color='rgba(0,0,0,0.25)', width=1, highlight=False)
         ),
         lighting=dict(ambient=0.6, diffuse=0.8, specular=0.2, roughness=0.5),
         name='Peanut Surface'
