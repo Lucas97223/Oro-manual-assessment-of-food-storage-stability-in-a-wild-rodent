@@ -6833,4 +6833,970 @@ def plot_real_peanut_and_simulation(
     return fig
 
 
+def plot_random_clamp_maps_grid(
+    sites_path, 
+    ethogram_path=None, 
+    show_bottom=True, 
+    show_front=True, 
+    show_lines=True, 
+    simple_lines=True, 
+    bottom_color='red', 
+    front_color='blue', 
+    output_file=None, 
+    overlap_threshold=0.50,
+    use_rectangle=False,
+    clamp_dims=(0.7, 0.4),
+    sampling_strategy='random'
+):
+    """
+    Plots a 2x3 grid of 2D unrolled peanut maps:
+    - Subplot 1: Actual Animal clamping sequence.
+    - Subplots 2-6: Five different simulation runs (with same start point and clamp counts).
+    
+    Clamps are colored green if their 3D distance to the hole is <= overlap_threshold.
+
+    sampling_strategy : 'random' (default) or 'markov'
+        'random'  – uniform area-weighted surface sampling.
+        'markov'  – biologically-informed Markov chain walk using empirical
+                    L/T transition probabilities and amplitude distributions
+                    computed from all sessions in the parent sites directory.
+    """
+    import os
+    import json
+    import glob
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Circle, Rectangle
+
+    if not os.path.exists(sites_path):
+        print(f"Sites file not found: {sites_path}")
+        return
+
+    # Load Bottom
+    sites_bottom = []
+    json_version = "v2"  # default
+    if show_bottom:
+        with open(sites_path, 'r') as f:
+            data = json.load(f)
+            sites_bottom = data if isinstance(data, list) else data.get("sites", [])
+            if isinstance(data, dict):
+                json_version = data.get("version", "v2")
+
+    # Load Front
+    sites_front = []
+    if show_front:
+        path_base = sites_path.replace("_sites.json", "")
+        front_path = path_base + "_front_sites.json"
+        if os.path.exists(front_path):
+            with open(front_path, 'r') as f:
+                fd = json.load(f)
+                sites_front = fd if isinstance(fd, list) else fd.get("sites", [])
+
+    def parse_sites(raw_sites):
+        valid = []
+        for i, s in enumerate(raw_sites):
+            if len(s) >= 4:
+                try:
+                    frame = int(s[3])
+                    p = [float(s[0]), float(s[1]), float(s[2])]
+                    valid.append({'p': p, 'frame': frame, 'orig_idx': i})
+                except: pass
+        valid.sort(key=lambda x: x['frame'])
+        return valid
+
+    valid_bottom = parse_sites(sites_bottom)
+    valid_front = parse_sites(sites_front)
+
+    if not valid_bottom and not valid_front:
+        print("No valid sites found to plot.")
+        return
+
+    # Setup Physical Geometry and Scaling
+    a_true, b_true = 1.2602, 1.3749
+    is_hole = 'hole' in os.path.basename(sites_path).lower() or 'hole' in os.path.dirname(sites_path).lower()
+    if is_hole:
+        a_orig, b_orig = 1.0, 1.1
+    else:
+        a_orig, b_orig = 1.0, 1.07
+    z_max_orig = np.sqrt(a_orig**2 + b_orig**2)
+    z_max_true = np.sqrt(a_true**2 + b_true**2)
+    scale_factor = z_max_true / z_max_orig
+
+    # Determine Hole Position in scaled coordinates
+    if json_version == "v3":
+        p_hole = np.array([0.0, 0.0, z_max_true])
+    else:
+        def peanut_radius_orig(z, a=1.0, b=1.1):
+            term1 = np.sqrt(b**4 + 4 * a**2 * z**2)
+            r2 = term1 - z**2 - a**2
+            return np.sqrt(np.maximum(0, r2))
+        r_hole_orig = peanut_radius_orig(0.75, a_orig, b_orig)
+        p_hole_orig = np.array([0.0, r_hole_orig, 0.75])
+        p_hole = p_hole_orig * scale_factor
+
+    z_h = p_hole[2]
+    theta_h = np.arctan2(p_hole[1], p_hole[0])
+
+    def scale_point(p):
+        return np.array([p[0] * scale_factor, p[1] * scale_factor, p[2] * scale_factor])
+
+    # Extract first clamps and subsequent counts
+    actual_bottom_coords = [scale_point(s['p']) for s in valid_bottom]
+    actual_front_coords = [scale_point(s['p']) for s in valid_front]
+
+    num_subsequent_bottom = max(0, len(valid_bottom) - 1)
+    num_subsequent_front = max(0, len(valid_front) - 1)
+    total_subsequent = num_subsequent_bottom + num_subsequent_front
+
+    b_first_scaled = actual_bottom_coords[0] if len(actual_bottom_coords) > 0 else None
+    f_first_scaled = actual_front_coords[0] if len(actual_front_coords) > 0 else None
+
+    # Setup Peanut Mesh for simulation
+    A_PARAM, B_PARAM = a_true, b_true
+    def peanut_radius_sim(z, a, b):
+        term1 = np.sqrt(b**4 + 4 * a**2 * z**2)
+        r2 = term1 - z**2 - a**2
+        return np.sqrt(np.maximum(0, r2))
+
+    z_max_sim = np.sqrt(A_PARAM**2 + B_PARAM**2)
+    z_lin = np.linspace(-z_max_sim * 0.999, z_max_sim * 0.999, 100)
+    theta_lin = np.linspace(0, 2*np.pi, 60, endpoint=False)
+    Z_mesh, Theta_mesh = np.meshgrid(z_lin, theta_lin, indexing='ij')
+    R_mesh = peanut_radius_sim(Z_mesh, A_PARAM, B_PARAM)
+    X_mesh = R_mesh * np.cos(Theta_mesh)
+    Y_mesh = R_mesh * np.sin(Theta_mesh)
+
+    faces = []
+    face_areas = []
+    rows, cols = X_mesh.shape
+    for r in range(rows - 1):
+        for c in range(cols):
+            p1 = np.array([X_mesh[r, c], Y_mesh[r, c], Z_mesh[r, c]])
+            p2 = np.array([X_mesh[r+1, c], Y_mesh[r+1, c], Z_mesh[r+1, c]])
+            nxt_c = (c + 1) % cols
+            p3 = np.array([X_mesh[r+1, nxt_c], Y_mesh[r+1, nxt_c], Z_mesh[r+1, nxt_c]])
+            p4 = np.array([X_mesh[r, nxt_c], Y_mesh[r, nxt_c], Z_mesh[r, nxt_c]])
+            c1 = (np.linalg.norm(np.cross(p2-p1, p3-p1)) + np.linalg.norm(np.cross(p3-p1, p4-p1))) / 2.0
+            faces.append((p1 + p2 + p3 + p4) / 4.0)
+            face_areas.append(c1)
+
+    faces = np.array(faces)
+    face_areas = np.array(face_areas)
+    face_probabilities = face_areas / np.sum(face_areas)
+
+    # ------------------------------------------------------------------
+    # Build empirical Markov parameters (used when sampling_strategy == 'markov')
+    # Scans all *_sites.json files in the parent directory of sites_path.
+    # ------------------------------------------------------------------
+    _markov_params_grid = None
+    if sampling_strategy == 'markov':
+        _sites_dir_grid = os.path.dirname(sites_path)
+        _bottom_files_grid = sorted([
+            f for f in glob.glob(os.path.join(_sites_dir_grid, "*_sites.json"))
+            if not f.endswith("_front_sites.json")
+        ])
+        def _pr_markov_grid(z, a=1.0, b=1.1):
+            t1 = np.sqrt(b**4 + 4 * a**2 * z**2)
+            return np.sqrt(np.maximum(0, t1 - z**2 - a**2))
+        _a_phys_g, _b_phys_g = 1.2602, 1.3749
+        _z_max_phys_g = np.sqrt(_a_phys_g**2 + _b_phys_g**2)
+        _scale_g = _z_max_phys_g / np.sqrt(1.0**2 + 1.1**2)
+        _trans_g  = {'LL': 0, 'LT': 0, 'TL': 0, 'TT': 0}
+        _counts_g = {'L': 0, 'T': 0}
+        _long_amps_g, _trans_amps_g = [], []
+        for _bf_g in _bottom_files_grid:
+            for _gpath in [_bf_g, _bf_g.replace('_sites.json', '_front_sites.json')]:
+                if not os.path.exists(_gpath): continue
+                try:
+                    with open(_gpath) as _fh:
+                        _gd = json.load(_fh)
+                        _graw = _gd if isinstance(_gd, list) else _gd.get('sites', [])
+                        _gch = [{'p': [float(s[0]), float(s[1]), float(s[2])], 'frame': int(s[3])}
+                                for s in _graw if len(s) >= 4]
+                    _gch.sort(key=lambda x: x['frame'])
+                    _gseq = []
+                    for _gi in range(len(_gch) - 1):
+                        _gp1, _gp2 = _gch[_gi]['p'], _gch[_gi+1]['p']
+                        _gdz_signed = get_geodesic_profile_distance(_gp1[2], _gp2[2], a=1.0, b=1.1)
+                        _gaz   = (_gp1[2] + _gp2[2]) / 2
+                        _gr    = _pr_markov_grid(_gaz)
+                        _ga1   = np.arctan2(_gp1[1], _gp1[0])
+                        _ga2   = np.arctan2(_gp2[1], _gp2[0])
+                        _gdarc_signed = _gr * (((_ga2 - _ga1 + np.pi) % (2 * np.pi)) - np.pi)
+                        _gseq.append(('L', _gdz_signed, _gdarc_signed) if abs(_gdz_signed) >= abs(_gdarc_signed) else ('T', _gdz_signed, _gdarc_signed))
+                    for _gi, (_gm, _gdz_val, _gdarc_val) in enumerate(_gseq):
+                        if _gm == 'L': _long_amps_g.append(_gdz_val * _scale_g)
+                        else:          _trans_amps_g.append(_gdarc_val * _scale_g)
+                        if _gi < len(_gseq) - 1:
+                            _gpair = _gm + _gseq[_gi+1][0]
+                            _trans_g[_gpair] += 1
+                            _counts_g[_gm]   += 1
+                except: pass
+        _pLL_g = _trans_g['LL'] / _counts_g['L'] if _counts_g['L'] > 0 else 0.5
+        _pTT_g = _trans_g['TT'] / _counts_g['T'] if _counts_g['T'] > 0 else 0.5
+        _markov_params_grid = dict(
+            prob_LL=_pLL_g, prob_LT=1-_pLL_g,
+            prob_TT=_pTT_g, prob_TL=1-_pTT_g,
+            long_amps=np.array(_long_amps_g) if _long_amps_g else np.array([0.3]),
+            trans_amps=np.array(_trans_amps_g) if _trans_amps_g else np.array([0.3]),
+            a_phys=_a_phys_g, b_phys=_b_phys_g, z_max_phys=_z_max_phys_g
+        )
+        print(f"[Markov grid] P(L->L)={_pLL_g:.3f}  P(T->T)={_pTT_g:.3f}  "
+              f"L-amps median={np.median(_markov_params_grid['long_amps']):.3f} cm  "
+              f"T-amps median={np.median(_markov_params_grid['trans_amps']):.3f} cm")
+
+    def _markov_run_grid(start_pt, n_steps, mp):
+        """Generate n_steps positions via Markov walk from start_pt (physical coords)."""
+        _a_p = mp['a_phys']; _b_p = mp['b_phys']; _z_max_p = mp['z_max_phys']
+        def _surf(z, th):
+            t1 = np.sqrt(_b_p**4 + 4*_a_p**2*z**2)
+            r  = np.sqrt(max(0.0, t1 - z**2 - _a_p**2))
+            return np.array([r*np.cos(th), r*np.sin(th), z])
+        _cur_z = np.clip(start_pt[2], -_z_max_p*0.999, _z_max_p*0.999)
+        _cur_th = np.arctan2(start_pt[1], start_pt[0])
+        _cur_type = 'L' if np.random.random() < mp['prob_LL'] else 'T'
+        pts = []
+        for _ in range(n_steps):
+            if _cur_type == 'L':
+                _dz = np.random.choice(mp['long_amps'])
+                _cur_z = np.clip(_cur_z + _dz, -_z_max_p*0.999, _z_max_p*0.999)
+            else:
+                _darc_signed = np.random.choice(mp['trans_amps'])
+                t1 = np.sqrt(_b_p**4 + 4*_a_p**2*_cur_z**2)
+                _r = max(1e-6, np.sqrt(max(0.0, t1 - _cur_z**2 - _a_p**2)))
+                _cur_th = (_cur_th + (_darc_signed/_r)) % (2*np.pi)
+            pts.append(_surf(_cur_z, _cur_th))
+            _cur_type = ('L' if np.random.random()<mp['prob_LL'] else 'T') if _cur_type=='L' else \
+                        ('T' if np.random.random()<mp['prob_TT'] else 'L')
+        return pts
+
+    # 2D projection parameters
+    S = 1.85
+    faces_proj = {
+        0: {'az': 0, 'cx': -S/1.5, 'cy': 0},
+        1: {'az': 180, 'cx': S/1.5, 'cy': 0}
+    }
+    z_vals = np.linspace(-z_max_true, z_max_true, 200)
+    def peanut_radius_local(z, a=a_true, b=b_true):
+        term1 = np.sqrt(b**4 + 4 * a**2 * z**2)
+        r2 = term1 - z**2 - a**2
+        return np.sqrt(np.maximum(0, r2))
+    r_vals = peanut_radius_local(z_vals, a_true, b_true)
+    width_vals = r_vals * (np.pi / 2) 
+
+    def wrap_angle(val):
+        return (val + np.pi) % (2 * np.pi) - np.pi
+
+    def get_distance_to_hole(p_sc):
+        if not use_rectangle:
+            return np.linalg.norm(p_sc - p_hole)
+        else:
+            z_c = p_sc[2]
+            theta_c = np.arctan2(p_sc[1], p_sc[0])
+            dy = z_c - z_h
+            dx_angle = wrap_angle(theta_c - theta_h)
+            r_c = peanut_radius_sim(z_c, A_PARAM, B_PARAM)
+            dx = r_c * dx_angle
+            dist_x = max(0.0, abs(dx) - clamp_dims[1] / 2.0)
+            dist_y = max(0.0, abs(dy) - clamp_dims[0] / 2.0)
+            return np.sqrt(dist_x**2 + dist_y**2)
+
+    def map_to_canvas_physical(p_physical):
+        x_scaled, y_scaled, z_scaled = p_physical
+        if is_hole:
+            x_scaled, y_scaled = y_scaled, -x_scaled
+        angle = np.degrees(np.arctan2(y_scaled, x_scaled)) % 360
+        
+        best_diff = 360; best_fid = -1
+        for fid, f in faces_proj.items():
+            diff = abs(angle - f['az'])
+            if diff > 180: diff = 360 - diff
+            if diff < best_diff: best_diff = diff; best_fid = fid
+            
+        f = faces_proj[best_fid]
+        raw_diff = angle - f['az']
+        if raw_diff > 180: raw_diff -= 360
+        elif raw_diff < -180: raw_diff += 360
+        
+        delta_rad = np.radians(raw_diff)
+        curr_r = np.sqrt(x_scaled**2 + y_scaled**2)
+        arc_dist = curr_r * delta_rad
+        return f['cx'] + arc_dist, f['cy'] + z_scaled
+
+    # Helper function to draw a single map
+    def draw_face_map(ax_subplot, title_text, bottom_coords, front_coords):
+        for fid, f in faces_proj.items():
+            cx, cy = f['cx'], f['cy']
+            ax_subplot.plot(cx + width_vals, cy + z_vals, 'k-', linewidth=1.5)
+            ax_subplot.plot(cx - width_vals, cy + z_vals, 'k-', linewidth=1.5)
+            ax_subplot.fill_betweenx(cy + z_vals, cx - width_vals, cx + width_vals, color='#a6806d', alpha=0.5)
+            
+            if is_hole:
+                if json_version == "v3":
+                    z_hole_min = z_max_true - 0.20 * scale_factor
+                    z_hole_max = z_max_true
+                    z_hole_vals = np.linspace(z_hole_min, z_hole_max, 50)
+                    r_hole_vals = peanut_radius_local(z_hole_vals, a_true, b_true)
+                    width_hole_vals = r_hole_vals * (np.pi / 2)
+                    ax_subplot.fill_betweenx(cy + z_hole_vals, cx - width_hole_vals, cx + width_hole_vals, color='black', alpha=0.85, zorder=8)
+                else:
+                    x_h, y_h = map_to_canvas_physical(p_hole)
+                    if abs(x_h - cx) < S:
+                        c_hole = Circle((x_h, y_h), radius=0.15, facecolor='black', edgecolor='black', zorder=18)
+                        ax_subplot.add_patch(c_hole)
+            
+            label_text = f"Front ({f['az']}°)" if fid == 0 else f"Back ({f['az']}°)"
+            ax_subplot.text(cx, cy + z_max_true + 0.3, label_text, ha='center', fontsize=10, fontweight='bold')
+
+        # Draw lines
+        if show_lines:
+            if show_bottom and len(bottom_coords) > 1:
+                mapped_b = [map_to_canvas_physical(p) for p in bottom_coords]
+                for i in range(len(mapped_b) - 1):
+                    p1, p2 = mapped_b[i], mapped_b[i+1]
+                    ax_subplot.plot([p1[0], p2[0]], [p1[1], p2[1]], color=bottom_color, linestyle='--', linewidth=1.5, alpha=0.5, zorder=15)
+            if show_front and len(front_coords) > 1:
+                mapped_f = [map_to_canvas_physical(p) for p in front_coords]
+                for i in range(len(mapped_f) - 1):
+                    p1, p2 = mapped_f[i], mapped_f[i+1]
+                    ax_subplot.plot([p1[0], p2[0]], [p1[1], p2[1]], color=front_color, linestyle='--', linewidth=1.5, alpha=0.5, zorder=15)
+
+        # Draw Clamps
+        marker_area = 0.5
+        
+        if show_bottom and len(bottom_coords) > 0:
+            n_b = len(bottom_coords)
+            r_b = np.sqrt((marker_area / n_b) / np.pi) if n_b > 0 else 0.1
+            for i, p in enumerate(bottom_coords):
+                X, Y = map_to_canvas_physical(p)
+                dist_to_hole = get_distance_to_hole(p)
+                is_contact = dist_to_hole <= overlap_threshold
+                if is_contact and is_hole and json_version != "v3":
+                    if X > 0:  # Back face, opposite the hole
+                        is_contact = False
+                color = 'green' if is_contact else bottom_color
+                if not use_rectangle:
+                    c = Circle((X, Y), radius=r_b, facecolor=color, edgecolor='black', zorder=20, alpha=0.7)
+                    ax_subplot.add_patch(c)
+                else:
+                    rect = Rectangle(
+                        (X - clamp_dims[1] / 2.0, Y - clamp_dims[0] / 2.0), 
+                        clamp_dims[1], clamp_dims[0], 
+                        facecolor=color, 
+                        edgecolor='black', 
+                        zorder=20, 
+                        alpha=0.7
+                    )
+                    ax_subplot.add_patch(rect)
+                ax_subplot.text(X, Y, str(i), fontsize=8, color='white', fontweight='bold', ha='center', va='center', zorder=25)
+
+        if show_front and len(front_coords) > 0:
+            n_f = len(front_coords)
+            r_f = np.sqrt((marker_area / n_f) / np.pi) if n_f > 0 else 0.1
+            for i, p in enumerate(front_coords):
+                X, Y = map_to_canvas_physical(p)
+                dist_to_hole = get_distance_to_hole(p)
+                is_contact = dist_to_hole <= overlap_threshold
+                if is_contact and is_hole and json_version != "v3":
+                    if X > 0:  # Back face, opposite the hole
+                        is_contact = False
+                color = 'green' if is_contact else front_color
+                if not use_rectangle:
+                    c = Circle((X, Y), radius=r_f, facecolor=color, edgecolor='black', zorder=20, alpha=0.7)
+                    ax_subplot.add_patch(c)
+                else:
+                    rect = Rectangle(
+                        (X - clamp_dims[1] / 2.0, Y - clamp_dims[0] / 2.0), 
+                        clamp_dims[1], clamp_dims[0], 
+                        facecolor=color, 
+                        edgecolor='black', 
+                        zorder=20, 
+                        alpha=0.7
+                    )
+                    ax_subplot.add_patch(rect)
+                ax_subplot.text(X, Y, str(i), fontsize=8, color='white', fontweight='bold', ha='center', va='center', zorder=25)
+
+        ax_subplot.set_aspect('equal')
+        ax_subplot.set_xlim(-S*1.5, S*1.5)
+        ax_subplot.set_ylim(-3.5, 3.5)
+        ax_subplot.axis('off')
+        ax_subplot.set_title(title_text, fontsize=12, pad=10)
+
+    # Main Grid Setup (2x3)
+    fig, axes = plt.subplots(2, 3, figsize=(20, 12))
+    
+    # 1. Plot Actual Animal
+    actual_min_dist = np.min([get_distance_to_hole(pt) for pt in actual_bottom_coords + actual_front_coords])
+    actual_touch = actual_min_dist <= overlap_threshold
+    actual_title = f"Actual Animal\n(Min Dist = {actual_min_dist:.3f} cm, Touch: {'Yes' if actual_touch else 'No'})"
+    draw_face_map(axes[0, 0], actual_title, actual_bottom_coords, actual_front_coords)
+
+    # 2. Plot 5 Simulations (random or Markov)
+    _strat_label_grid = 'Markov Run' if sampling_strategy == 'markov' else 'Random Run'
+    for sim_idx in range(1, 6):
+        if sampling_strategy == 'markov' and _markov_params_grid is not None:
+            sim_b = []
+            if show_bottom and b_first_scaled is not None:
+                walk_b = _markov_run_grid(b_first_scaled, num_subsequent_bottom, _markov_params_grid)
+                sim_b = [b_first_scaled] + walk_b
+            sim_f = []
+            if show_front and f_first_scaled is not None:
+                walk_f = _markov_run_grid(f_first_scaled, num_subsequent_front, _markov_params_grid)
+                sim_f = [f_first_scaled] + walk_f
+        else:
+            # Original random sampling
+            sampled_indices = np.random.choice(len(faces), size=total_subsequent, p=face_probabilities)
+            sim_coords = faces[sampled_indices]
+            sim_b = []
+            if show_bottom and b_first_scaled is not None:
+                sim_b = [b_first_scaled] + list(sim_coords[:num_subsequent_bottom])
+            sim_f = []
+            if show_front and f_first_scaled is not None:
+                sim_f = [f_first_scaled] + list(sim_coords[num_subsequent_bottom:])
+            
+        # Compute stats for this simulation run
+        all_sim_coords = sim_b + sim_f
+        sim_min_dist = np.min([get_distance_to_hole(pt) for pt in all_sim_coords])
+        sim_touch = sim_min_dist <= overlap_threshold
+        
+        row = (sim_idx) // 3
+        col = (sim_idx) % 3
+        
+        sim_title = f"{_strat_label_grid} #{sim_idx}\n(Min Dist = {sim_min_dist:.3f} cm, Touch: {'Yes' if sim_touch else 'No'})"
+        draw_face_map(axes[row, col], sim_title, sim_b, sim_f)
+
+    _main_title = 'Markov Walk' if sampling_strategy == 'markov' else 'Random Search'
+    plt.suptitle(f"Clamping Search Realizations: Animal vs. {_main_title}", fontsize=18, fontweight='bold', y=0.98)
+    plt.tight_layout()
+
+    if output_file:
+        os.makedirs(os.path.dirname(output_file), exist_ok=True)
+        plt.savefig(output_file, dpi=300, bbox_inches='tight')
+        if output_file.endswith('.png'):
+            plt.savefig(output_file.replace('.png', '.svg'), bbox_inches='tight')
+        elif output_file.endswith('.svg'):
+            plt.savefig(output_file.replace('.svg', '.png'), dpi=300, bbox_inches='tight')
+        print(f"Saved random map comparison grid to {output_file}")
+
+    plt.show()
+    plt.close(fig)
+
+
+
+def plot_random_clamp_maps_grid_3d(
+    sites_path, 
+    ethogram_path=None, 
+    show_bottom=True, 
+    show_front=True, 
+    show_lines=True, 
+    simple_lines=True, 
+    bottom_color='red', 
+    front_color='blue', 
+    output_file=None, 
+    overlap_threshold=0.50,
+    use_rectangle=False,
+    clamp_dims=(0.7, 0.4),
+    sampling_strategy='random'
+):
+    """
+    Plots a 2x3 grid of interactive 3D peanut models:
+    - Subplot 1: Actual Animal clamping sequence.
+    - Subplots 2-6: Five different simulation runs (with same start point and clamp counts).
+    
+    Clamps are colored green if their 3D distance to the hole is <= overlap_threshold.
+    Returns the Plotly figure.
+
+    sampling_strategy : 'random' (default) or 'markov'
+        'random'  – uniform area-weighted surface sampling.
+        'markov'  – biologically-informed Markov chain walk using empirical
+                    L/T transition probabilities and amplitude distributions
+                    computed from all sessions in the parent sites directory.
+    """
+    import os
+    import sys
+    import json
+    import glob
+    import numpy as np
+    try:
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+    except ImportError:
+        print("Error: 'plotly' package is required for interactive 3D plots. Please install it with 'pip install plotly'.")
+        return None
+
+    if not os.path.exists(sites_path):
+        print(f"Sites file not found: {sites_path}")
+        return None
+
+    # Load Bottom
+    sites_bottom = []
+    json_version = "v2"
+    with open(sites_path, 'r') as f:
+        data = json.load(f)
+        sites_bottom = data if isinstance(data, list) else data.get("sites", [])
+        if isinstance(data, dict):
+            json_version = data.get("version", "v2")
+
+    # Load Front
+    sites_front = []
+    path_base = sites_path.replace("_sites.json", "")
+    front_path = path_base + "_front_sites.json"
+    if os.path.exists(front_path):
+        with open(front_path, 'r') as f:
+            fd = json.load(f)
+            sites_front = fd if isinstance(fd, list) else fd.get("sites", [])
+
+    def parse_sites(raw_sites):
+        valid = []
+        for i, s in enumerate(raw_sites):
+            if len(s) >= 4:
+                try:
+                    frame = int(s[3])
+                    p = [float(s[0]), float(s[1]), float(s[2])]
+                    valid.append({'p': p, 'frame': frame, 'orig_idx': i})
+                except: pass
+        valid.sort(key=lambda x: x['frame'])
+        return valid
+
+    valid_bottom = parse_sites(sites_bottom)
+    valid_front = parse_sites(sites_front)
+
+    if not valid_bottom and not valid_front:
+        print("No valid sites found to plot.")
+        return None
+
+    # Setup Physical Geometry and Scaling
+    a_true, b_true = 1.2602, 1.3749
+    is_hole = 'hole' in os.path.basename(sites_path).lower() or 'hole' in os.path.dirname(sites_path).lower()
+    if is_hole:
+        a_orig, b_orig = 1.0, 1.1
+    else:
+        a_orig, b_orig = 1.0, 1.07
+    z_max_orig = np.sqrt(a_orig**2 + b_orig**2)
+    z_max_true = np.sqrt(a_true**2 + b_true**2)
+    scale_factor = z_max_true / z_max_orig
+
+    # Determine Hole Position in scaled coordinates
+    if json_version == "v3":
+        p_hole = np.array([0.0, 0.0, z_max_true])
+    else:
+        def peanut_radius_orig(z, a=1.0, b=1.1):
+            term1 = np.sqrt(b**4 + 4 * a**2 * z**2)
+            r2 = term1 - z**2 - a**2
+            return np.sqrt(np.maximum(0, r2))
+        r_hole_orig = peanut_radius_orig(0.75, a_orig, b_orig)
+        p_hole_orig = np.array([0.0, r_hole_orig, 0.75])
+        p_hole = p_hole_orig * scale_factor
+
+    z_h = p_hole[2]
+    theta_h = np.arctan2(p_hole[1], p_hole[0])
+
+    def scale_point(p):
+        return np.array([p[0] * scale_factor, p[1] * scale_factor, p[2] * scale_factor])
+
+    # Extract first clamps and subsequent counts
+    actual_bottom_coords = [scale_point(s['p']) for s in valid_bottom]
+    actual_front_coords = [scale_point(s['p']) for s in valid_front]
+
+    num_subsequent_bottom = max(0, len(valid_bottom) - 1)
+    num_subsequent_front = max(0, len(valid_front) - 1)
+    total_subsequent = num_subsequent_bottom + num_subsequent_front
+
+    b_first_scaled = actual_bottom_coords[0] if len(actual_bottom_coords) > 0 else None
+    f_first_scaled = actual_front_coords[0] if len(actual_front_coords) > 0 else None
+
+    # Setup Peanut Mesh for simulation
+    A_PARAM, B_PARAM = a_true, b_true
+    def peanut_radius_sim(z, a, b):
+        term1 = np.sqrt(b**4 + 4 * a**2 * z**2)
+        r2 = term1 - z**2 - a**2
+        return np.sqrt(np.maximum(0, r2))
+
+    def wrap_angle(val):
+        return (val + np.pi) % (2 * np.pi) - np.pi
+
+    def get_distance_to_hole(p_sc):
+        if not use_rectangle:
+            return np.linalg.norm(p_sc - p_hole)
+        else:
+            z_c = p_sc[2]
+            theta_c = np.arctan2(p_sc[1], p_sc[0])
+            dy = z_c - z_h
+            dx_angle = wrap_angle(theta_c - theta_h)
+            r_c = peanut_radius_sim(z_c, A_PARAM, B_PARAM)
+            dx = r_c * dx_angle
+            dist_x = max(0.0, abs(dx) - clamp_dims[1] / 2.0)
+            dist_y = max(0.0, abs(dy) - clamp_dims[0] / 2.0)
+            return np.sqrt(dist_x**2 + dist_y**2)
+
+    def get_clamp_rectangle_3d_points(p, W=clamp_dims[1], L=clamp_dims[0]):
+        z_c = p[2]
+        theta_c = np.arctan2(p[1], p[0])
+        boundary_pts = []
+        
+        # Bottom edge
+        z_val = z_c - L/2
+        z_val = np.clip(z_val, -z_max_true + 0.01, z_max_true - 0.01)
+        r_val = max(0.01, peanut_radius_sim(z_val, A_PARAM, B_PARAM))
+        d_theta = (W / 2.0) / r_val
+        for t in np.linspace(theta_c - d_theta, theta_c + d_theta, 5):
+            boundary_pts.append([r_val * np.cos(t), r_val * np.sin(t), z_val])
+            
+        # Top edge
+        z_val = z_c + L/2
+        z_val = np.clip(z_val, -z_max_true + 0.01, z_max_true - 0.01)
+        r_val = max(0.01, peanut_radius_sim(z_val, A_PARAM, B_PARAM))
+        d_theta = (W / 2.0) / r_val
+        for t in np.linspace(theta_c + d_theta, theta_c - d_theta, 5):
+            boundary_pts.append([r_val * np.cos(t), r_val * np.sin(t), z_val])
+            
+        boundary_pts.append(boundary_pts[0])
+        return np.array(boundary_pts)
+
+    z_max_sim = np.sqrt(A_PARAM**2 + B_PARAM**2)
+    z_lin = np.linspace(-z_max_sim * 0.999, z_max_sim * 0.999, 100)
+    theta_lin = np.linspace(0, 2*np.pi, 60, endpoint=False)
+    Z_mesh, Theta_mesh = np.meshgrid(z_lin, theta_lin, indexing='ij')
+    R_mesh = peanut_radius_sim(Z_mesh, A_PARAM, B_PARAM)
+    X_mesh = R_mesh * np.cos(Theta_mesh)
+    Y_mesh = R_mesh * np.sin(Theta_mesh)
+
+    # Compute distance to hole for color mapping
+    dists_mesh = np.sqrt((X_mesh - p_hole[0])**2 + (Y_mesh - p_hole[1])**2 + (Z_mesh - p_hole[2])**2)
+    hole_mask = (dists_mesh <= overlap_threshold).astype(float)
+
+    # Build faces list for random sampling
+    faces = []
+    face_areas = []
+    rows, cols = X_mesh.shape
+    for r in range(rows - 1):
+        for c in range(cols):
+            p1 = np.array([X_mesh[r, c], Y_mesh[r, c], Z_mesh[r, c]])
+            p2 = np.array([X_mesh[r+1, c], Y_mesh[r+1, c], Z_mesh[r+1, c]])
+            nxt_c = (c + 1) % cols
+            p3 = np.array([X_mesh[r+1, nxt_c], Y_mesh[r+1, nxt_c], Z_mesh[r+1, nxt_c]])
+            p4 = np.array([X_mesh[r, nxt_c], Y_mesh[r, nxt_c], Z_mesh[r, nxt_c]])
+            c1 = (np.linalg.norm(np.cross(p2-p1, p3-p1)) + np.linalg.norm(np.cross(p3-p1, p4-p1))) / 2.0
+            faces.append((p1 + p2 + p3 + p4) / 4.0)
+            face_areas.append(c1)
+
+    faces = np.array(faces)
+    face_areas = np.array(face_areas)
+    face_probabilities = face_areas / np.sum(face_areas)
+
+    # ------------------------------------------------------------------
+    # Build empirical Markov parameters for the 3D grid (when 'markov')
+    # ------------------------------------------------------------------
+    _markov_params_3d = None
+    if sampling_strategy == 'markov':
+        _sites_dir_3d = os.path.dirname(sites_path)
+        _bottom_files_3d = sorted([
+            f for f in glob.glob(os.path.join(_sites_dir_3d, "*_sites.json"))
+            if not f.endswith("_front_sites.json")
+        ])
+        def _pr_markov_3d(z, a=1.0, b=1.1):
+            t1 = np.sqrt(b**4 + 4*a**2*z**2)
+            return np.sqrt(np.maximum(0, t1 - z**2 - a**2))
+        _a_phys_3d, _b_phys_3d = 1.2602, 1.3749
+        _z_max_phys_3d = np.sqrt(_a_phys_3d**2 + _b_phys_3d**2)
+        _scale_3d = _z_max_phys_3d / np.sqrt(1.0**2 + 1.1**2)
+        _trans_3d  = {'LL': 0, 'LT': 0, 'TL': 0, 'TT': 0}
+        _counts_3d = {'L': 0, 'T': 0}
+        _long_amps_3d, _trans_amps_3d = [], []
+        for _bf_3d in _bottom_files_3d:
+            for _gpath in [_bf_3d, _bf_3d.replace('_sites.json', '_front_sites.json')]:
+                if not os.path.exists(_gpath): continue
+                try:
+                    with open(_gpath) as _fh:
+                        _gd = json.load(_fh)
+                        _graw = _gd if isinstance(_gd, list) else _gd.get('sites', [])
+                        _gch = [{'p': [float(s[0]), float(s[1]), float(s[2])], 'frame': int(s[3])}
+                                for s in _graw if len(s) >= 4]
+                    _gch.sort(key=lambda x: x['frame'])
+                    _gseq = []
+                    for _gi in range(len(_gch) - 1):
+                        _gp1, _gp2 = _gch[_gi]['p'], _gch[_gi+1]['p']
+                        _gdz_signed = get_geodesic_profile_distance(_gp1[2], _gp2[2], a=1.0, b=1.1)
+                        _gaz   = (_gp1[2] + _gp2[2]) / 2
+                        _gr    = _pr_markov_3d(_gaz)
+                        _ga1   = np.arctan2(_gp1[1], _gp1[0])
+                        _ga2   = np.arctan2(_gp2[1], _gp2[0])
+                        _gdarc_signed = _gr * (((_ga2 - _ga1 + np.pi) % (2 * np.pi)) - np.pi)
+                        _gseq.append(('L', _gdz_signed, _gdarc_signed) if abs(_gdz_signed) >= abs(_gdarc_signed) else ('T', _gdz_signed, _gdarc_signed))
+                    for _gi, (_gm, _gdz_val, _gdarc_val) in enumerate(_gseq):
+                        if _gm == 'L': _long_amps_3d.append(_gdz_val * _scale_3d)
+                        else:          _trans_amps_3d.append(_gdarc_val * _scale_3d)
+                        if _gi < len(_gseq) - 1:
+                            _trans_3d[_gm + _gseq[_gi+1][0]] += 1
+                            _counts_3d[_gm] += 1
+                except: pass
+        _pLL_3d = _trans_3d['LL']/_counts_3d['L'] if _counts_3d['L']>0 else 0.5
+        _pTT_3d = _trans_3d['TT']/_counts_3d['T'] if _counts_3d['T']>0 else 0.5
+        _markov_params_3d = dict(
+            prob_LL=_pLL_3d, prob_LT=1-_pLL_3d,
+            prob_TT=_pTT_3d, prob_TL=1-_pTT_3d,
+            long_amps=np.array(_long_amps_3d) if _long_amps_3d else np.array([0.3]),
+            trans_amps=np.array(_trans_amps_3d) if _trans_amps_3d else np.array([0.3]),
+            a_phys=_a_phys_3d, b_phys=_b_phys_3d, z_max_phys=_z_max_phys_3d
+        )
+        print(f"[Markov 3D] P(L->L)={_pLL_3d:.3f}  P(T->T)={_pTT_3d:.3f}")
+
+    def _markov_run_3d(start_pt, n_steps, mp):
+        """Generate n_steps positions via Markov walk (physical coords)."""
+        _a_p=mp['a_phys']; _b_p=mp['b_phys']; _z_max_p=mp['z_max_phys']
+        def _surf(z, th):
+            t1=np.sqrt(_b_p**4+4*_a_p**2*z**2)
+            r=np.sqrt(max(0.0,t1-z**2-_a_p**2))
+            return np.array([r*np.cos(th),r*np.sin(th),z])
+        _cur_z=np.clip(start_pt[2],-_z_max_p*0.999,_z_max_p*0.999)
+        _cur_th=np.arctan2(start_pt[1],start_pt[0])
+        _cur_type='L' if np.random.random()<mp['prob_LL'] else 'T'
+        pts=[]
+        for _ in range(n_steps):
+            if _cur_type == 'L':
+                _dz = np.random.choice(mp['long_amps'])
+                _cur_z = np.clip(_cur_z + _dz, -_z_max_p * 0.999, _z_max_p * 0.999)
+            else:
+                _darc_signed = np.random.choice(mp['trans_amps'])
+                t1 = np.sqrt(_b_p**4 + 4 * _a_p**2 * _cur_z**2)
+                _r = max(1e-6, np.sqrt(max(0.0, t1 - _cur_z**2 - _a_p**2)))
+                _cur_th = (_cur_th + (_darc_signed / _r)) % (2 * np.pi)
+            pts.append(_surf(_cur_z, _cur_th))
+            _cur_type = ('L' if np.random.random() < mp['prob_LL'] else 'T') if _cur_type == 'L' else \
+                        ('T' if np.random.random() < mp['prob_TT'] else 'L')
+        return pts
+
+    # Generate the 5 simulations first to compile titles
+    _strat_label_3d = 'Markov Run' if sampling_strategy == 'markov' else 'Random Run'
+    sim_runs = []
+    for sim_idx in range(1, 6):
+        if sampling_strategy == 'markov' and _markov_params_3d is not None:
+            sim_b = []
+            if b_first_scaled is not None:
+                sim_b = [b_first_scaled] + _markov_run_3d(b_first_scaled, num_subsequent_bottom, _markov_params_3d)
+            sim_f = []
+            if f_first_scaled is not None:
+                sim_f = [f_first_scaled] + _markov_run_3d(f_first_scaled, num_subsequent_front, _markov_params_3d)
+        else:
+            sampled_indices = np.random.choice(len(faces), size=total_subsequent, p=face_probabilities)
+            sim_coords = faces[sampled_indices]
+            sim_b = []
+            if b_first_scaled is not None:
+                sim_b = [b_first_scaled] + list(sim_coords[:num_subsequent_bottom])
+            sim_f = []
+            if f_first_scaled is not None:
+                sim_f = [f_first_scaled] + list(sim_coords[num_subsequent_bottom:])
+            
+        all_sim_coords = sim_b + sim_f
+        sim_min_dist = np.min([get_distance_to_hole(pt) for pt in all_sim_coords])
+        sim_touch = sim_min_dist <= overlap_threshold
+        sim_runs.append({
+            'b': sim_b,
+            'f': sim_f,
+            'min_dist': sim_min_dist,
+            'touch': sim_touch
+        })
+
+    # Compile Titles
+    actual_min_dist = np.min([get_distance_to_hole(pt) for pt in actual_bottom_coords + actual_front_coords])
+    actual_touch = actual_min_dist <= overlap_threshold
+    
+    titles = [
+        f"Actual Animal<br><sub>Min Dist: {actual_min_dist:.3f} cm | Touch: {'Yes' if actual_touch else 'No'}</sub>"
+    ]
+    for i, run in enumerate(sim_runs):
+        titles.append(
+            f"{_strat_label_3d} {i+1}<br><sub>Min Dist: {run['min_dist']:.3f} cm | Touch: {'Yes' if run['touch'] else 'No'}</sub>"
+        )
+
+    # Plotly Subplots configuration (2x3 scene subplots)
+    fig = make_subplots(
+        rows=2, cols=3,
+        specs=[
+            [{'type': 'scene'}, {'type': 'scene'}, {'type': 'scene'}],
+            [{'type': 'scene'}, {'type': 'scene'}, {'type': 'scene'}]
+        ],
+        subplot_titles=titles,
+        horizontal_spacing=0.01,
+        vertical_spacing=0.08
+    )
+
+    # Helper function to add a 3D peanut and clamps to a specific subplot
+    def draw_3d_peanut_and_clamps(row, col, bottom_coords, front_coords):
+        # 1. Add Peanut Surface
+        fig.add_trace(go.Surface(
+            x=X_mesh, y=Y_mesh, z=Z_mesh,
+            surfacecolor=hole_mask,
+            colorscale=[[0.0, '#C89C64'], [1.0, '#1E1E1E']],  # Tan shell, black hole
+            cmin=0, cmax=1,
+            showscale=False,
+            opacity=0.75,
+            hoverinfo='skip',
+            name='Peanut Shell'
+        ), row=row, col=col)
+
+        # 2. Add Hole Target Center Marker
+        fig.add_trace(go.Scatter3d(
+            x=[p_hole[0]], y=[p_hole[1]], z=[p_hole[2]],
+            mode='markers',
+            marker=dict(size=8, color='#10B981', symbol='circle'), # Emerald green target center
+            name='Hole Center',
+            showlegend=False
+        ), row=row, col=col)
+
+        # 3. Add Bottom Clamps
+        if len(bottom_coords) > 0:
+            x_b = [p[0] for p in bottom_coords]
+            y_b = [p[1] for p in bottom_coords]
+            z_b = [p[2] for p in bottom_coords]
+            colors_b = []
+            for p in bottom_coords:
+                dist = get_distance_to_hole(p)
+                colors_b.append('#10B981' if dist <= overlap_threshold else '#EF4444')  # Green if hit, Red if miss
+
+            # Lines connecting chronologically
+            fig.add_trace(go.Scatter3d(
+                x=x_b, y=y_b, z=z_b,
+                mode='lines',
+                line=dict(color='rgba(239, 68, 68, 0.6)', width=4),
+                showlegend=False
+            ), row=row, col=col)
+
+            if use_rectangle:
+                for p, color in zip(bottom_coords, colors_b):
+                    rect_pts = get_clamp_rectangle_3d_points(p)
+                    fig.add_trace(go.Scatter3d(
+                        x=rect_pts[:, 0], y=rect_pts[:, 1], z=rect_pts[:, 2],
+                        mode='lines',
+                        line=dict(color=color, width=3),
+                        showlegend=False,
+                        hoverinfo='skip'
+                    ), row=row, col=col)
+
+            # Markers with original indexes
+            fig.add_trace(go.Scatter3d(
+                x=x_b, y=y_b, z=z_b,
+                mode='markers+text',
+                marker=dict(size=7, color=colors_b, line=dict(color='white', width=1)),
+                text=[str(i) for i in range(len(bottom_coords))],
+                textposition="top center",
+                textfont=dict(size=10, color='white', family='Arial Black'),
+                name='Bottom Clamps',
+                showlegend=False
+            ), row=row, col=col)
+
+        # 4. Add Front Clamps
+        if len(front_coords) > 0:
+            x_f = [p[0] for p in front_coords]
+            y_f = [p[1] for p in front_coords]
+            z_f = [p[2] for p in front_coords]
+            colors_f = []
+            for p in front_coords:
+                dist = get_distance_to_hole(p)
+                colors_f.append('#10B981' if dist <= overlap_threshold else '#3B82F6')  # Green if hit, Blue if miss
+
+            # Lines connecting chronologically
+            fig.add_trace(go.Scatter3d(
+                x=x_f, y=y_f, z=z_f,
+                mode='lines',
+                line=dict(color='rgba(59, 130, 246, 0.6)', width=4),
+                showlegend=False
+            ), row=row, col=col)
+
+            if use_rectangle:
+                for p, color in zip(front_coords, colors_f):
+                    rect_pts = get_clamp_rectangle_3d_points(p)
+                    fig.add_trace(go.Scatter3d(
+                        x=rect_pts[:, 0], y=rect_pts[:, 1], z=rect_pts[:, 2],
+                        mode='lines',
+                        line=dict(color=color, width=3),
+                        showlegend=False,
+                        hoverinfo='skip'
+                    ), row=row, col=col)
+
+            # Markers with original indexes
+            fig.add_trace(go.Scatter3d(
+                x=x_f, y=y_f, z=z_f,
+                mode='markers+text',
+                marker=dict(size=7, color=colors_f, line=dict(color='white', width=1)),
+                text=[str(i) for i in range(len(front_coords))],
+                textposition="top center",
+                textfont=dict(size=10, color='white', family='Arial Black'),
+                name='Front Clamps',
+                showlegend=False
+            ), row=row, col=col)
+
+    # 1. Plot Actual Animal
+    draw_3d_peanut_and_clamps(1, 1, actual_bottom_coords, actual_front_coords)
+
+    # 2. Plot 5 Random Simulations
+    for sim_idx, run in enumerate(sim_runs):
+        r = (sim_idx + 1) // 3 + 1
+        c = (sim_idx + 1) % 3 + 1
+        draw_3d_peanut_and_clamps(r, c, run['b'], run['f'])
+
+    # Styling and Layout
+    DARK_BG = '#09090E'
+    
+    camera = dict(
+        up=dict(x=0, y=0, z=1),
+        center=dict(x=0, y=0, z=0),
+        eye=dict(x=1.3, y=1.3, z=0.7)
+    )
+
+    _title_strat_3d = 'Markov Walk' if sampling_strategy == 'markov' else 'Random Search'
+    fig.update_layout(
+        template='plotly_dark',
+        paper_bgcolor=DARK_BG,
+        plot_bgcolor=DARK_BG,
+        title=dict(
+            text=f"Interactive 3D Clamping Sequences: Animal vs. {_title_strat_3d}",
+            font=dict(size=22, color='white', family='Arial Black'),
+            y=0.96, x=0.5, xanchor='center'
+        ),
+        margin=dict(l=10, r=10, t=80, b=10),
+        height=950,
+        showlegend=False
+    )
+
+    # Apply aspect ratios and camera angles to all scenes, hiding background/grids
+    for r in [1, 2]:
+        for c in [1, 2, 3]:
+            fig.update_scenes(
+                dict(
+                    xaxis=dict(showgrid=False, showbackground=False, showticklabels=False, zeroline=False, title=''),
+                    yaxis=dict(showgrid=False, showbackground=False, showticklabels=False, zeroline=False, title=''),
+                    zaxis=dict(showgrid=False, showbackground=False, showticklabels=False, zeroline=False, title=''),
+                    aspectmode='data',
+                    camera=camera
+                ),
+                row=r, col=c
+            )
+
+    if output_file:
+        os.makedirs(os.path.dirname(output_file), exist_ok=True)
+        html_file = output_file
+        if output_file.endswith('.svg') or output_file.endswith('.png'):
+            base, _ = os.path.splitext(output_file)
+            html_file = base + ".html"
+        
+        fig.write_html(html_file)
+        print(f"Saved interactive 3D comparison grid to {html_file}")
+        
+        # Try writing static image if requested
+        if output_file.endswith('.svg') or output_file.endswith('.png'):
+            try:
+                fig.write_image(output_file)
+                print(f"Saved static 3D comparison grid to {output_file}")
+            except Exception as e:
+                print(f"Note: Could not save static image {output_file} (requires 'kaleido' package).")
+
+    # Show figure if in Jupyter notebook or interactive environment
+    if hasattr(sys, 'ps1') or 'ipykernel' in sys.modules:
+        fig.show()
+
+    return fig
+
+
+
 
