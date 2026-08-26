@@ -7803,7 +7803,8 @@ def plot_random_clamp_maps_grid_3d(
 def plot_real_peanut_3d_surface(a=1.2602, b=1.3749, output_file=None, show=True):
     """
     Generates a beautiful interactive 3D surface plot of the Cassini ovoid peanut model
-    with a waist, showing the mesh grid squares and the hole, using standard colors.
+    with a waist, showing the mesh grid squares and the hole, using standard colors
+    and a fine resolution (150x150) to make the grid cells smaller and square.
     
     Parameters:
         a : float, default 1.2602
@@ -7828,9 +7829,9 @@ def plot_real_peanut_3d_surface(a=1.2602, b=1.3749, output_file=None, show=True)
 
     z_max = np.sqrt(a**2 + b**2)
     
-    # Generate the Cassini ovoid meshgrid
-    z_lin = np.linspace(-z_max * 0.999, z_max * 0.999, 100)
-    theta_lin = np.linspace(0, 2 * np.pi, 60, endpoint=False)
+    # Generate the Cassini ovoid meshgrid with higher density (150x150) for smaller, square grid elements
+    z_lin = np.linspace(-z_max * 0.999, z_max * 0.999, 150)
+    theta_lin = np.linspace(0, 2 * np.pi, 150, endpoint=False)
     Zm, Thm = np.meshgrid(z_lin, theta_lin, indexing='ij')
 
     # Compute radius of Cassini ovoid (peanut with a waist)
