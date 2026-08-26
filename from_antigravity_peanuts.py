@@ -7800,18 +7800,18 @@ def plot_random_clamp_maps_grid_3d(
 
 
 
-def plot_real_peanut_3d_surface(a=1.2602, b=1.3749, colorscale='Copper', output_file=None, show=True):
+def plot_real_peanut_3d_surface(a=1.2602, b=1.3749, colorscale='brwnyl', output_file=None, show=True):
     """
     Generates a beautiful interactive 3D surface plot of the Cassini ovoid peanut model
-    with nothing else on it.
+    with a waist and nothing else on it.
     
     Parameters:
         a : float, default 1.2602
             Parameter 'a' of the Cassini ovoid (neck-to-lobe geometry).
         b : float, default 1.3749
             Parameter 'b' of the Cassini ovoid (lobe size).
-        colorscale : str, default 'Copper'
-            Plotly colorscale for the peanut surface.
+        colorscale : str, default 'brwnyl'
+            Plotly colorscale for the peanut surface (e.g. 'brwnyl', 'peach', 'solar').
         output_file : str, optional
             Path to save the interactive HTML output file.
         show : bool, default True
@@ -7835,7 +7835,7 @@ def plot_real_peanut_3d_surface(a=1.2602, b=1.3749, colorscale='Copper', output_
     theta_lin = np.linspace(0, 2 * np.pi, 150)
     Zm, Thm = np.meshgrid(z_lin, theta_lin)
 
-    # Compute radius of Cassini ovoid
+    # Compute radius of Cassini ovoid (peanut with a waist)
     term1 = np.sqrt(b**4 + 4 * a**2 * Zm**2)
     r2 = term1 - Zm**2 - a**2
     Rm = np.sqrt(np.maximum(0, r2))
@@ -7860,7 +7860,7 @@ def plot_real_peanut_3d_surface(a=1.2602, b=1.3749, colorscale='Copper', output_
     fig.update_layout(
         template='plotly_dark',
         title=dict(
-            text="Interactive 3D Cassini Ovoid Peanut Model",
+            text="Interactive 3D Real Peanut Model (with Waist)",
             font=dict(size=20, color='white', family='Arial Black'),
             y=0.95, x=0.5, xanchor='center'
         ),
