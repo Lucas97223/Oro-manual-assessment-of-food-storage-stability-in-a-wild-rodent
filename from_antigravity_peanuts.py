@@ -7909,11 +7909,13 @@ def plot_real_peanut_3d_surface(a=1.2602, b=1.3749, output_file=None, show=True)
 
 
 
+
 def plot_real_peanut_3d_surface_shaded(a=1.2602, b=1.3749, output_file=None, show=True):
     """
     Generates a beautiful interactive 3D surface plot of the Cassini ovoid peanut model
-    with a waist, showing the mesh grid squares and the hole in standard colors, 
-    with 3D shading/volumetric rendering, but NO clamps on top.
+    with a waist, showing the mesh grid squares and the hole, using standard colors and
+    the exact aesthetic (50x45 grid resolution, 0.75 opacity, default lighting) from the 
+    clamping grid subplots, but NO clamps on top.
     
     Parameters:
         a : float, default 1.2602
@@ -7938,9 +7940,9 @@ def plot_real_peanut_3d_surface_shaded(a=1.2602, b=1.3749, output_file=None, sho
 
     z_max = np.sqrt(a**2 + b**2)
     
-    # Generate the Cassini ovoid meshgrid with high density (300x300)
-    z_lin = np.linspace(-z_max * 0.999, z_max * 0.999, 300)
-    theta_lin = np.linspace(0, 2 * np.pi, 300, endpoint=False)
+    # Use the exact grid resolution from the subplots: 50 x 45
+    z_lin = np.linspace(-z_max * 0.999, z_max * 0.999, 50)
+    theta_lin = np.linspace(0, 2 * np.pi, 45, endpoint=False)
     Zm, Thm = np.meshgrid(z_lin, theta_lin, indexing='ij')
 
     # Compute radius of Cassini ovoid (peanut with a waist)
@@ -7961,23 +7963,16 @@ def plot_real_peanut_3d_surface_shaded(a=1.2602, b=1.3749, output_file=None, sho
     dists_mesh = np.sqrt((Xm - p_hole[0])**2 + (Ym - p_hole[1])**2 + (Zm - p_hole[2])**2)
     hole_mask = (dists_mesh <= overlap_threshold).astype(float)
 
-    # Plot surface using standard ovoid colors: Tan shell '#C89C64' and Black hole '#1E1E1E'
-    # Enable x, y, and z contours with moderate spacing (size=0.08) to show clear grid lines
+    # Plot surface matching the exact subplot trace settings (opacity=0.75, no custom lighting/contours)
     fig = go.Figure(data=[go.Surface(
         x=Xm, y=Ym, z=Zm,
         surfacecolor=hole_mask,
-        colorscale=[[0.0, '#C89C64'], [1.0, '#1E1E1E']],
+        colorscale=[[0.0, '#C89C64'], [1.0, '#1E1E1E']],  # Tan shell, black hole
         cmin=0, cmax=1,
         showscale=False,
-        opacity=0.9,
-        # Draw the contours along x, y, and z to show a complete 3D wireframe grid on the surface
-        contours=dict(
-            x=dict(show=True, start=-2.0, end=2.0, size=0.08, color='rgba(0,0,0,0.25)', width=1, highlight=False),
-            y=dict(show=True, start=-2.0, end=2.0, size=0.08, color='rgba(0,0,0,0.25)', width=1, highlight=False),
-            z=dict(show=True, start=-2.5, end=2.5, size=0.08, color='rgba(0,0,0,0.25)', width=1, highlight=False)
-        ),
-        lighting=dict(ambient=0.6, diffuse=0.8, specular=0.2, roughness=0.5),
-        name='Peanut Surface'
+        opacity=0.75,
+        hoverinfo='skip',
+        name='Peanut Shell'
     )])
 
     camera = dict(
@@ -8011,8 +8006,6 @@ def plot_real_peanut_3d_surface_shaded(a=1.2602, b=1.3749, output_file=None, sho
         print(f"Saved interactive 3D peanut surface to {output_file}")
 
     if show:
-        # Check if running in background server or standalone to choose renderer
-        # Default show is fine, but can use 'browser' renderer if requested
         fig.show()
 
     return fig
