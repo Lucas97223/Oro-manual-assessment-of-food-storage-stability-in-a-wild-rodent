@@ -7800,3 +7800,89 @@ def plot_random_clamp_maps_grid_3d(
 
 
 
+def plot_real_peanut_3d_surface(a=1.2602, b=1.3749, colorscale='Copper', output_file=None, show=True):
+    """
+    Generates a beautiful interactive 3D surface plot of the Cassini ovoid peanut model
+    with nothing else on it.
+    
+    Parameters:
+        a : float, default 1.2602
+            Parameter 'a' of the Cassini ovoid (neck-to-lobe geometry).
+        b : float, default 1.3749
+            Parameter 'b' of the Cassini ovoid (lobe size).
+        colorscale : str, default 'Copper'
+            Plotly colorscale for the peanut surface.
+        output_file : str, optional
+            Path to save the interactive HTML output file.
+        show : bool, default True
+            Whether to display the interactive plot in the notebook.
+            
+    Returns:
+        plotly.graph_objects.Figure
+    """
+    import numpy as np
+    import sys
+    try:
+        import plotly.graph_objects as go
+    except ImportError:
+        print("Error: 'plotly' package is required for interactive 3D plots. Please install it with 'pip install plotly'.")
+        return None
+
+    z_max = np.sqrt(a**2 + b**2)
+    
+    # Generate the Cassini ovoid meshgrid
+    z_lin = np.linspace(-z_max * 0.999, z_max * 0.999, 150)
+    theta_lin = np.linspace(0, 2 * np.pi, 150)
+    Zm, Thm = np.meshgrid(z_lin, theta_lin)
+
+    # Compute radius of Cassini ovoid
+    term1 = np.sqrt(b**4 + 4 * a**2 * Zm**2)
+    r2 = term1 - Zm**2 - a**2
+    Rm = np.sqrt(np.maximum(0, r2))
+    
+    Xm = Rm * np.cos(Thm)
+    Ym = Rm * np.sin(Thm)
+
+    # Plot surface
+    fig = go.Figure(data=[go.Surface(
+        x=Xm, y=Ym, z=Zm,
+        colorscale=colorscale,
+        showscale=False,
+        lighting=dict(ambient=0.6, diffuse=0.8, specular=0.2, roughness=0.5)
+    )])
+
+    camera = dict(
+        up=dict(x=0, y=0, z=1),
+        center=dict(x=0, y=0, z=0),
+        eye=dict(x=1.3, y=1.3, z=0.7)
+    )
+
+    fig.update_layout(
+        template='plotly_dark',
+        title=dict(
+            text="Interactive 3D Cassini Ovoid Peanut Model",
+            font=dict(size=20, color='white', family='Arial Black'),
+            y=0.95, x=0.5, xanchor='center'
+        ),
+        scene=dict(
+            xaxis=dict(showgrid=False, showbackground=False, showticklabels=False, zeroline=False, title=''),
+            yaxis=dict(showgrid=False, showbackground=False, showticklabels=False, zeroline=False, title=''),
+            zaxis=dict(showgrid=False, showbackground=False, showticklabels=False, zeroline=False, title=''),
+            aspectmode='data',
+            camera=camera
+        ),
+        width=800,
+        height=800
+    )
+
+    if output_file:
+        import os
+        os.makedirs(os.path.dirname(output_file), exist_ok=True)
+        fig.write_html(output_file)
+        print(f"Saved interactive 3D peanut surface to {output_file}")
+
+    if show:
+        fig.show()
+
+    return fig
+
