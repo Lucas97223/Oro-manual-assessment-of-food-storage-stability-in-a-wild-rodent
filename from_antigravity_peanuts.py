@@ -7907,3 +7907,113 @@ def plot_real_peanut_3d_surface(a=1.2602, b=1.3749, output_file=None, show=True)
 
     return fig
 
+
+
+def plot_real_peanut_3d_surface_shaded(a=1.2602, b=1.3749, output_file=None, show=True):
+    """
+    Generates a beautiful interactive 3D surface plot of the Cassini ovoid peanut model
+    with a waist, showing the mesh grid squares and the hole in standard colors, 
+    with 3D shading/volumetric rendering, but NO clamps on top.
+    
+    Parameters:
+        a : float, default 1.2602
+            Parameter 'a' of the Cassini ovoid (neck-to-lobe geometry).
+        b : float, default 1.3749
+            Parameter 'b' of the Cassini ovoid (lobe size).
+        output_file : str, optional
+            Path to save the interactive HTML output file.
+        show : bool, default True
+            Whether to display the interactive plot in the notebook / browser.
+            
+    Returns:
+        plotly.graph_objects.Figure
+    """
+    import numpy as np
+    import sys
+    try:
+        import plotly.graph_objects as go
+    except ImportError:
+        print("Error: 'plotly' package is required for interactive 3D plots. Please install it with 'pip install plotly'.")
+        return None
+
+    z_max = np.sqrt(a**2 + b**2)
+    
+    # Generate the Cassini ovoid meshgrid with high density (300x300)
+    z_lin = np.linspace(-z_max * 0.999, z_max * 0.999, 300)
+    theta_lin = np.linspace(0, 2 * np.pi, 300, endpoint=False)
+    Zm, Thm = np.meshgrid(z_lin, theta_lin, indexing='ij')
+
+    # Compute radius of Cassini ovoid (peanut with a waist)
+    term1 = np.sqrt(b**4 + 4 * a**2 * Zm**2)
+    r2 = term1 - Zm**2 - a**2
+    Rm = np.sqrt(np.maximum(0, r2))
+    
+    Xm = Rm * np.cos(Thm)
+    Ym = Rm * np.sin(Thm)
+
+    # Determine Hole Position (using standard scaling as in the grid code)
+    scale_factor = z_max / np.sqrt(1.0**2 + 1.1**2)
+    r_hole_orig = np.sqrt(np.maximum(0, np.sqrt(1.1**4 + 4 * 1.0**2 * 0.75**2) - 0.75**2 - 1.0**2))
+    p_hole = np.array([0.0, r_hole_orig, 0.75]) * scale_factor
+    overlap_threshold = 0.50
+
+    # Compute distance to hole for surfacecolor mapping
+    dists_mesh = np.sqrt((Xm - p_hole[0])**2 + (Ym - p_hole[1])**2 + (Zm - p_hole[2])**2)
+    hole_mask = (dists_mesh <= overlap_threshold).astype(float)
+
+    # Plot surface using standard ovoid colors: Tan shell '#C89C64' and Black hole '#1E1E1E'
+    # Enable x, y, and z contours with moderate spacing (size=0.08) to show clear grid lines
+    fig = go.Figure(data=[go.Surface(
+        x=Xm, y=Ym, z=Zm,
+        surfacecolor=hole_mask,
+        colorscale=[[0.0, '#C89C64'], [1.0, '#1E1E1E']],
+        cmin=0, cmax=1,
+        showscale=False,
+        opacity=0.9,
+        # Draw the contours along x, y, and z to show a complete 3D wireframe grid on the surface
+        contours=dict(
+            x=dict(show=True, start=-2.0, end=2.0, size=0.08, color='rgba(0,0,0,0.25)', width=1, highlight=False),
+            y=dict(show=True, start=-2.0, end=2.0, size=0.08, color='rgba(0,0,0,0.25)', width=1, highlight=False),
+            z=dict(show=True, start=-2.5, end=2.5, size=0.08, color='rgba(0,0,0,0.25)', width=1, highlight=False)
+        ),
+        lighting=dict(ambient=0.6, diffuse=0.8, specular=0.2, roughness=0.5),
+        name='Peanut Surface'
+    )])
+
+    camera = dict(
+        up=dict(x=0, y=0, z=1),
+        center=dict(x=0, y=0, z=0),
+        eye=dict(x=1.3, y=1.3, z=0.7)
+    )
+
+    fig.update_layout(
+        template='plotly_dark',
+        title=dict(
+            text="Interactive 3D Real Peanut Model (with Waist and Grid Squares)",
+            font=dict(size=20, color='white', family='Arial Black'),
+            y=0.95, x=0.5, xanchor='center'
+        ),
+        scene=dict(
+            xaxis=dict(showgrid=False, showbackground=False, showticklabels=False, zeroline=False, title=''),
+            yaxis=dict(showgrid=False, showbackground=False, showticklabels=False, zeroline=False, title=''),
+            zaxis=dict(showgrid=False, showbackground=False, showticklabels=False, zeroline=False, title=''),
+            aspectmode='data',
+            camera=camera
+        ),
+        width=800,
+        height=800
+    )
+
+    if output_file:
+        import os
+        os.makedirs(os.path.dirname(output_file), exist_ok=True)
+        fig.write_html(output_file)
+        print(f"Saved interactive 3D peanut surface to {output_file}")
+
+    if show:
+        # Check if running in background server or standalone to choose renderer
+        # Default show is fine, but can use 'browser' renderer if requested
+        fig.show()
+
+    return fig
+
