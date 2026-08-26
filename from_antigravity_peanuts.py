@@ -7804,7 +7804,8 @@ def plot_real_peanut_3d_surface(a=1.2602, b=1.3749, output_file=None, show=True)
     """
     Generates a beautiful interactive 3D surface plot of the Cassini ovoid peanut model
     with a waist, showing the mesh grid squares and the hole, using standard colors.
-    All three coordinate contours (x, y, z) are enabled to show the complete grid.
+    All three coordinate contours (x, y, z) are enabled with a very fine spacing (size=0.04)
+    to create an extremely high-density grid of small squares representing the vertices.
     
     Parameters:
         a : float, default 1.2602
@@ -7853,7 +7854,7 @@ def plot_real_peanut_3d_surface(a=1.2602, b=1.3749, output_file=None, show=True)
     hole_mask = (dists_mesh <= overlap_threshold).astype(float)
 
     # Plot surface using standard ovoid colors: Tan shell '#C89C64' and Black hole '#1E1E1E'
-    # Enable x, y, and z contours to show the complete grid on the surface
+    # Enable x, y, and z contours with very fine spacing (size=0.04) to show high-density grid lines
     fig = go.Figure(data=[go.Surface(
         x=Xm, y=Ym, z=Zm,
         surfacecolor=hole_mask,
@@ -7863,9 +7864,9 @@ def plot_real_peanut_3d_surface(a=1.2602, b=1.3749, output_file=None, show=True)
         opacity=0.9,
         # Draw the contours along x, y, and z to show a complete 3D wireframe grid on the surface
         contours=dict(
-            x=dict(show=True, color='rgba(0,0,0,0.25)', width=1, highlight=False),
-            y=dict(show=True, color='rgba(0,0,0,0.25)', width=1, highlight=False),
-            z=dict(show=True, color='rgba(0,0,0,0.25)', width=1, highlight=False)
+            x=dict(show=True, start=-2.0, end=2.0, size=0.04, color='rgba(0,0,0,0.25)', width=1, highlight=False),
+            y=dict(show=True, start=-2.0, end=2.0, size=0.04, color='rgba(0,0,0,0.25)', width=1, highlight=False),
+            z=dict(show=True, start=-2.5, end=2.5, size=0.04, color='rgba(0,0,0,0.25)', width=1, highlight=False)
         ),
         lighting=dict(ambient=0.6, diffuse=0.8, specular=0.2, roughness=0.5),
         name='Peanut Surface'
@@ -7880,7 +7881,7 @@ def plot_real_peanut_3d_surface(a=1.2602, b=1.3749, output_file=None, show=True)
     fig.update_layout(
         template='plotly_dark',
         title=dict(
-            text="Interactive 3D Real Peanut Model (with Waist and Grid Squares)",
+            text="Interactive 3D Real Peanut Model (with Waist and Fine Grid Squares)",
             font=dict(size=20, color='white', family='Arial Black'),
             y=0.95, x=0.5, xanchor='center'
         ),
