@@ -7800,18 +7800,16 @@ def plot_random_clamp_maps_grid_3d(
 
 
 
-def plot_real_peanut_3d_surface(a=1.2602, b=1.3749, colorscale='brwnyl', output_file=None, show=True):
+def plot_real_peanut_3d_surface(a=1.2602, b=1.3749, output_file=None, show=True):
     """
     Generates a beautiful interactive 3D surface plot of the Cassini ovoid peanut model
-    with a waist and nothing else on it.
+    with a waist, showing the mesh grid squares and the hole, using standard colors.
     
     Parameters:
         a : float, default 1.2602
             Parameter 'a' of the Cassini ovoid (neck-to-lobe geometry).
         b : float, default 1.3749
             Parameter 'b' of the Cassini ovoid (lobe size).
-        colorscale : str, default 'brwnyl'
-            Plotly colorscale for the peanut surface (e.g. 'brwnyl', 'peach', 'solar').
         output_file : str, optional
             Path to save the interactive HTML output file.
         show : bool, default True
@@ -7831,9 +7829,9 @@ def plot_real_peanut_3d_surface(a=1.2602, b=1.3749, colorscale='brwnyl', output_
     z_max = np.sqrt(a**2 + b**2)
     
     # Generate the Cassini ovoid meshgrid
-    z_lin = np.linspace(-z_max * 0.999, z_max * 0.999, 150)
-    theta_lin = np.linspace(0, 2 * np.pi, 150)
-    Zm, Thm = np.meshgrid(z_lin, theta_lin)
+    z_lin = np.linspace(-z_max * 0.999, z_max * 0.999, 100)
+    theta_lin = np.linspace(0, 2 * np.pi, 60, endpoint=False)
+    Zm, Thm = np.meshgrid(z_lin, theta_lin, indexing='ij')
 
     # Compute radius of Cassini ovoid (peanut with a waist)
     term1 = np.sqrt(b**4 + 4 * a**2 * Zm**2)
@@ -7843,12 +7841,31 @@ def plot_real_peanut_3d_surface(a=1.2602, b=1.3749, colorscale='brwnyl', output_
     Xm = Rm * np.cos(Thm)
     Ym = Rm * np.sin(Thm)
 
-    # Plot surface
+    # Determine Hole Position (using standard scaling as in the grid code)
+    scale_factor = z_max / np.sqrt(1.0**2 + 1.1**2)
+    r_hole_orig = np.sqrt(np.maximum(0, np.sqrt(1.1**4 + 4 * 1.0**2 * 0.75**2) - 0.75**2 - 1.0**2))
+    p_hole = np.array([0.0, r_hole_orig, 0.75]) * scale_factor
+    overlap_threshold = 0.50
+
+    # Compute distance to hole for surfacecolor mapping
+    dists_mesh = np.sqrt((Xm - p_hole[0])**2 + (Ym - p_hole[1])**2 + (Zm - p_hole[2])**2)
+    hole_mask = (dists_mesh <= overlap_threshold).astype(float)
+
+    # Plot surface using standard ovoid colors: Tan shell '#C89C64' and Black hole '#1E1E1E'
     fig = go.Figure(data=[go.Surface(
         x=Xm, y=Ym, z=Zm,
-        colorscale=colorscale,
+        surfacecolor=hole_mask,
+        colorscale=[[0.0, '#C89C64'], [1.0, '#1E1E1E']],
+        cmin=0, cmax=1,
         showscale=False,
-        lighting=dict(ambient=0.6, diffuse=0.8, specular=0.2, roughness=0.5)
+        opacity=0.9,
+        # Draw the contours to show the square/mesh lines
+        contours=dict(
+            x=dict(show=True, color='rgba(0,0,0,0.25)', width=1, highlight=False),
+            y=dict(show=True, color='rgba(0,0,0,0.25)', width=1, highlight=False)
+        ),
+        lighting=dict(ambient=0.6, diffuse=0.8, specular=0.2, roughness=0.5),
+        name='Peanut Surface'
     )])
 
     camera = dict(
@@ -7860,7 +7877,7 @@ def plot_real_peanut_3d_surface(a=1.2602, b=1.3749, colorscale='brwnyl', output_
     fig.update_layout(
         template='plotly_dark',
         title=dict(
-            text="Interactive 3D Real Peanut Model (with Waist)",
+            text="Interactive 3D Real Peanut Model (with Waist and Grid Squares)",
             font=dict(size=20, color='white', family='Arial Black'),
             y=0.95, x=0.5, xanchor='center'
         ),
